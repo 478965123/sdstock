@@ -74,9 +74,9 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.18 0.02 250);
 
-  --primary: oklch(0.55 0.18 145);            /* signal green - "GO / RECEIVE" */
-  --primary-foreground: oklch(0.99 0.01 145);
-  --primary-glow: oklch(0.7 0.2 145);
+  --primary: oklch(0.55 0.2 250);             /* signal blue - "GO / RECEIVE" */
+  --primary-foreground: oklch(0.99 0.01 250);
+  --primary-glow: oklch(0.7 0.18 250);
 
   --secondary: oklch(0.96 0.006 250);
   --secondary-foreground: oklch(0.2 0.02 250);
