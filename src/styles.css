@@ -90,15 +90,15 @@
   --destructive: oklch(0.58 0.22 25);
   --destructive-foreground: oklch(0.99 0.01 25);
 
-  --success: oklch(0.55 0.18 145);
-  --success-foreground: oklch(0.99 0.01 145);
+  --success: oklch(0.6 0.16 160);
+  --success-foreground: oklch(0.99 0.01 160);
 
   --warning: oklch(0.72 0.17 75);             /* amber - caution */
   --warning-foreground: oklch(0.2 0.06 75);
 
   --border: oklch(0.92 0.006 250);
   --input: oklch(0.92 0.006 250);
-  --ring: oklch(0.55 0.18 145);
+  --ring: oklch(0.55 0.2 250);
 
   --chart-1: oklch(0.78 0.18 145);
   --chart-2: oklch(0.7 0.18 240);
