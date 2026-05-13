@@ -108,12 +108,12 @@
 
   --sidebar: oklch(0.985 0.003 250);
   --sidebar-foreground: oklch(0.18 0.02 250);
-  --sidebar-primary: oklch(0.55 0.18 145);
-  --sidebar-primary-foreground: oklch(0.99 0.01 145);
+  --sidebar-primary: oklch(0.55 0.2 250);
+  --sidebar-primary-foreground: oklch(0.99 0.01 250);
   --sidebar-accent: oklch(0.96 0.006 250);
   --sidebar-accent-foreground: oklch(0.2 0.02 250);
   --sidebar-border: oklch(0.92 0.006 250);
-  --sidebar-ring: oklch(0.55 0.18 145);
+  --sidebar-ring: oklch(0.55 0.2 250);
 }
 
 /* Light theme override (mostly for back office / desktop preference) */
