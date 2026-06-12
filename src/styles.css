@@ -179,4 +179,11 @@
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
   .touch-target { min-height: 48px; min-width: 48px; }
   .num-display { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

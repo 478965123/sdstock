@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Boxes, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/login")({
@@ -11,7 +10,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, signIn, signUp } = useAuth();
   const nav = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -28,21 +27,11 @@ function LoginPage() {
     setBusy(true);
     try {
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        await signIn(email, password);
         toast.success("เข้าสู่ระบบสำเร็จ");
       } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: { full_name: name },
-          },
-        });
-        if (error) throw error;
-        toast.success("สมัครสมาชิกสำเร็จ — โปรดยืนยันอีเมลก่อนเข้าใช้งาน");
-        setMode("signin");
+        await signUp(email, password, name);
+        toast.success("สมัครสมาชิกสำเร็จ");
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "เกิดข้อผิดพลาด";
@@ -93,7 +82,6 @@ function LoginPage() {
             onChange={setPassword}
             autoComplete={mode === "signin" ? "current-password" : "new-password"}
             required
-            minLength={6}
           />
 
           <button
