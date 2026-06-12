@@ -7,7 +7,6 @@ import {
   FileText,
   ImagePlus,
   PackagePlus,
-  Pencil,
   Plus,
   Save,
   Trash2,
@@ -134,10 +133,6 @@ function ReceivePage() {
   const [formHeader, setFormHeader] = useState(emptyFormHeader);
   const [lineItems, setLineItems] = useState<LineItemForm[]>([emptyLineItem()]);
 
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editHeader, setEditHeader] = useState(emptyFormHeader);
-  const [editLineItems, setEditLineItems] = useState<LineItemForm[]>([emptyLineItem()]);
-
   const selected = useMemo(
     () => records.find((record) => record.id === selectedId) ?? null,
     [records, selectedId],
@@ -256,101 +251,6 @@ function ReceivePage() {
     setFormHeader(emptyFormHeader);
     setLineItems([emptyLineItem()]);
     setIsCreateOpen(true);
-  }
-
-  // ── Edit helpers ──────────────────────────────────────────────────────────────
-  function addEditLineItem() {
-    setEditLineItems((current) => [...current, emptyLineItem()]);
-  }
-
-  function removeEditLineItem(id: string) {
-    setEditLineItems((current) => current.filter((item) => item.id !== id));
-  }
-
-  function updateEditLineItem(id: string, patch: Partial<Omit<LineItemForm, "id">>) {
-    setEditLineItems((current) =>
-      current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    );
-  }
-
-  function attachEditImage(file: File | undefined) {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("กรุณาเลือกไฟล์รูปภาพ");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setEditHeader((current) => ({
-        ...current,
-        imageUrl: String(reader.result),
-        imageName: file.name,
-      }));
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function openEdit(record: ReceivingRecord) {
-    setEditHeader({
-      vendorName: record.vendorName,
-      invoice_no: record.invoice_no,
-      note: record.note ?? "",
-      imageUrl: record.imageUrl ?? "",
-      imageName: record.imageName ?? "",
-    });
-    setEditLineItems(
-      record.items.map((item) => ({
-        id: item.id,
-        itemName: item.itemName,
-        categories: item.categories,
-        qty: String(item.qty),
-        unit: item.unit,
-      })),
-    );
-    setIsEditOpen(true);
-  }
-
-  function saveEdit() {
-    if (!selectedId) return;
-    if (!editHeader.vendorName.trim() || !editHeader.invoice_no.trim()) {
-      toast.error("กรุณากรอกผู้ขายและเลข Invoice");
-      return;
-    }
-    for (const item of editLineItems) {
-      if (!item.itemName.trim()) {
-        toast.error("กรุณากรอกชื่อสินค้าให้ครบทุกรายการ");
-        return;
-      }
-      const qty = Number(item.qty);
-      if (!Number.isFinite(qty) || qty <= 0) {
-        toast.error(`จำนวนสินค้า "${item.itemName}" ต้องมากกว่า 0`);
-        return;
-      }
-    }
-    const parsedItems: LineItem[] = editLineItems.map((item) => ({
-      id: item.id,
-      itemName: item.itemName.trim(),
-      categories: item.categories,
-      qty: Number(item.qty),
-      unit: item.unit,
-    }));
-    setRecords((current) =>
-      current.map((record) =>
-        record.id === selectedId
-          ? {
-              ...record,
-              vendorName: editHeader.vendorName.trim(),
-              invoice_no: editHeader.invoice_no.trim(),
-              note: editHeader.note.trim(),
-              imageUrl: editHeader.imageUrl || undefined,
-              imageName: editHeader.imageName || undefined,
-              items: parsedItems,
-            }
-          : record,
-      ),
-    );
-    setIsEditOpen(false);
-    toast.success("แก้ไขรายการแล้ว");
   }
 
   return (
@@ -632,213 +532,6 @@ function ReceivePage() {
         </SheetContent>
       </Sheet>
 
-      {/* Edit Sheet */}
-      <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <SheetContent side="bottom" className="mx-auto max-h-[92dvh] max-w-md overflow-y-auto rounded-t-3xl scrollbar-hide">
-          <SheetHeader className="text-left">
-            <SheetTitle>แก้ไขรายการรับสินค้า</SheetTitle>
-            <SheetDescription>{selected?.receive_no}</SheetDescription>
-          </SheetHeader>
-
-          <div className="mt-5 space-y-4">
-            <Field
-              label="ผู้ขาย"
-              required
-              value={editHeader.vendorName}
-              placeholder="เช่น Fresh Market Supplier"
-              onChange={(vendorName) => setEditHeader((c) => ({ ...c, vendorName }))}
-            />
-            <Field
-              label="Invoice No."
-              required
-              value={editHeader.invoice_no}
-              placeholder="เช่น INV-1004"
-              onChange={(invoice_no) => setEditHeader((c) => ({ ...c, invoice_no }))}
-            />
-
-            {/* Edit line items */}
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold text-foreground">
-                  รายการสินค้า
-                  <span className="ml-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                    {editLineItems.length}
-                  </span>
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {editLineItems.map((item, index) => (
-                  <div key={item.id} className="rounded-2xl border border-border bg-card p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-muted-foreground">
-                        รายการที่ {index + 1}
-                      </span>
-                      {editLineItems.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeEditLineItem(item.id)}
-                          className="touch-target inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-[11px] font-semibold text-destructive"
-                        >
-                          <X className="h-3 w-3" /> ลบ
-                        </button>
-                      )}
-                    </div>
-                    <div className="space-y-3">
-                      <Field
-                        label="สินค้า"
-                        required
-                        value={item.itemName}
-                        placeholder="เช่น Rice 5kg"
-                        onChange={(itemName) => updateEditLineItem(item.id, { itemName })}
-                      />
-                      <div>
-                        <span className="mb-2 block text-xs font-medium text-muted-foreground">
-                          ประเภทสินค้า <RequiredMark />
-                        </span>
-                        <div className="flex flex-wrap gap-2">
-                          {productCategories.map((cat) => {
-                            const active = item.categories.includes(cat);
-                            return (
-                              <button
-                                key={cat}
-                                type="button"
-                                onClick={() => {
-                                  const next = active
-                                    ? item.categories.filter((c) => c !== cat)
-                                    : [...item.categories, cat];
-                                  updateEditLineItem(item.id, {
-                                    categories: next.length > 0 ? next : [cat],
-                                  });
-                                }}
-                                className={`touch-target rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${
-                                  active
-                                    ? "bg-primary text-primary-foreground ring-primary"
-                                    : "bg-background text-muted-foreground ring-border"
-                                }`}
-                              >
-                                {cat}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <Field
-                          label="จำนวน"
-                          required
-                          type="number"
-                          min="1"
-                          value={item.qty}
-                          onChange={(qty) => updateEditLineItem(item.id, { qty })}
-                        />
-                        <div>
-                          <span className="mb-2 block text-xs font-medium text-muted-foreground">
-                            หน่วย <RequiredMark />
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {productUnits.map((unit) => {
-                              const active = item.unit === unit;
-                              return (
-                                <button
-                                  key={unit}
-                                  type="button"
-                                  onClick={() => updateEditLineItem(item.id, { unit })}
-                                  className={`touch-target rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition ${
-                                    active
-                                      ? "bg-primary text-primary-foreground ring-primary"
-                                      : "bg-background text-muted-foreground ring-border"
-                                  }`}
-                                >
-                                  {unit}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={addEditLineItem}
-                className="touch-target mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-primary/40 bg-primary/5 py-3 text-sm font-semibold text-primary transition active:scale-[0.99]"
-              >
-                <Plus className="h-4 w-4" /> เพิ่มสินค้า
-              </button>
-            </div>
-
-            {/* Image */}
-            <div>
-              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                รูปภาพแนบ
-              </span>
-              {editHeader.imageUrl ? (
-                <div className="overflow-hidden rounded-2xl border border-border bg-card">
-                  <img src={editHeader.imageUrl} alt="รูปภาพแนบ" className="h-28 w-full object-cover" />
-                  <div className="flex items-center justify-between gap-3 p-2.5">
-                    <p className="min-w-0 truncate text-xs font-medium text-muted-foreground">
-                      {editHeader.imageName}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setEditHeader((c) => ({ ...c, imageUrl: "", imageName: "" }))}
-                      className="touch-target inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-semibold"
-                    >
-                      <X className="h-3.5 w-3.5" /> ลบรูป
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <label className="touch-target flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-border bg-surface px-4 py-4 text-left transition active:scale-[0.99]">
-                  <span className="rounded-xl bg-primary/10 p-2.5 text-primary ring-1 ring-primary/30">
-                    <ImagePlus className="h-5 w-5" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold">แนบรูปสินค้า / Invoice</span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                      เลือกรูปจากเครื่องเพื่อแสดงในรายการนี้
-                    </span>
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    onChange={(event) => attachEditImage(event.target.files?.[0])}
-                  />
-                </label>
-              )}
-            </div>
-
-            {/* Note */}
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                หมายเหตุ
-              </span>
-              <textarea
-                value={editHeader.note}
-                onChange={(event) => setEditHeader((c) => ({ ...c, note: event.target.value }))}
-                rows={2}
-                className="block min-h-20 w-full resize-none rounded-xl border border-input bg-surface px-4 py-3 text-base text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
-              />
-            </label>
-          </div>
-
-          <SheetFooter className="mt-6">
-            <button
-              type="button"
-              onClick={saveEdit}
-              className="touch-target inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-semibold text-primary-foreground"
-            >
-              <Save className="h-4 w-4" /> บันทึกการแก้ไข
-            </button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
       {/* Detail Sheet */}
       <Sheet open={!!selected} onOpenChange={(open) => !open && setSelectedId(null)}>
         <SheetContent side="bottom" className="mx-auto max-h-[88dvh] max-w-md overflow-y-auto rounded-t-3xl scrollbar-hide">
@@ -899,7 +592,7 @@ function ReceivePage() {
                 </div>
               )}
 
-              <div className="mt-5 grid grid-cols-3 gap-3">
+              <div className="mt-5 grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() =>
@@ -911,14 +604,7 @@ function ReceivePage() {
                   className="touch-target inline-flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-semibold text-primary-foreground"
                 >
                   <Check className="h-4 w-4" />
-                  {selected.status === "POSTED" ? "Draft" : "Post"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openEdit(selected)}
-                  className="touch-target inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3 text-sm font-semibold"
-                >
-                  <Pencil className="h-4 w-4" /> แก้ไข
+                  {selected.status === "POSTED" ? "เป็น Draft" : "Post"}
                 </button>
                 <button
                   type="button"

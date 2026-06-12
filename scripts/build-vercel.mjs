@@ -1,12 +1,13 @@
 /**
  * Vercel Build Output API v3 wrapper for TanStack Start + Cloudflare adapter.
  *
- * The Cloudflare Worker format (WinterCG fetch handler) is compatible with
- * Vercel Edge Functions — this script re-packages the build output so Vercel
- * can deploy it correctly.
+ * The Cloudflare adapter emits a WinterCG `fetch(request, env, ctx)` handler.
+ * Vercel Edge Runtime does NOT support node:stream / node:stream/web (used by
+ * TanStack Start internals), so we deploy as a Node.js Serverless Function
+ * instead and bridge the two formats with a thin adapter.
  *
- * dist/client/  → .vercel/output/static/   (CDN-served assets)
- * dist/server/  → .vercel/output/functions/index.func/  (Edge Function)
+ * dist/client/  → .vercel/output/static/             (CDN-served assets)
+ * dist/server/  → .vercel/output/functions/index.func/ (Node.js function)
  */
 
 import { execSync } from "node:child_process";
@@ -28,18 +29,85 @@ console.log("▶ Copying static assets…");
 mkdirSync(`${out}/static`, { recursive: true });
 cpSync(resolve(root, "dist/client"), `${out}/static`, { recursive: true });
 
-// ── 4. Edge Function (SSR) ───────────────────────────────────────────────────
-console.log("▶ Creating edge function…");
+// ── 4. Node.js Serverless Function (SSR) ─────────────────────────────────────
+console.log("▶ Creating Node.js serverless function…");
 const funcDir = `${out}/functions/index.func`;
 mkdirSync(funcDir, { recursive: true });
 
-// Copy the self-contained server bundle
+// Copy the self-contained server bundle (Cloudflare Worker format)
 cpSync(resolve(root, "dist/server"), funcDir, { recursive: true });
 
-// Vercel edge function config
+// Thin adapter: converts Cloudflare Worker fetch handler → Node.js HTTP handler.
+// Uses a cached dynamic import so the ESM bundle is only loaded once.
+writeFileSync(
+  `${funcDir}/entry.js`,
+  `"use strict";
+// Cache the ESM worker module so it is only imported once per cold start.
+let _worker;
+async function getWorker() {
+  if (!_worker) {
+    const mod = await import("./index.js");
+    _worker = mod.default ?? mod;
+  }
+  return _worker;
+}
+
+module.exports = async function handler(req, res) {
+  const worker = await getWorker();
+
+  // Build a full URL from the incoming Node.js request.
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  const host  = req.headers["x-forwarded-host"] || req.headers["host"] || "localhost";
+  const url   = new URL(req.url, proto + "://" + host);
+
+  // Convert Node.js headers to WHATWG Headers.
+  const headers = new Headers();
+  for (const [key, val] of Object.entries(req.headers)) {
+    if (val == null) continue;
+    headers.set(key, Array.isArray(val) ? val.join(", ") : val);
+  }
+
+  // Buffer request body (skip for bodyless methods).
+  let body;
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    body = await new Promise((resolve) => {
+      const chunks = [];
+      req.on("data", (c) => chunks.push(c));
+      req.on("end", () => resolve(Buffer.concat(chunks)));
+    });
+  }
+
+  const request = new Request(url.toString(), {
+    method: req.method,
+    headers,
+    body: body && body.length ? body : undefined,
+  });
+
+  // Call the Cloudflare Worker fetch handler.
+  const response = await worker.fetch(request, {}, {
+    waitUntil: () => {},
+    passThroughOnException: () => {},
+  });
+
+  // Forward status + headers to Node.js response.
+  res.statusCode = response.status;
+  for (const [key, val] of response.headers.entries()) {
+    res.setHeader(key, val);
+  }
+
+  res.end(Buffer.from(await response.arrayBuffer()));
+};
+`,
+);
+
+// Node.js Serverless Function config (Nodejs launcher, NOT edge).
 writeFileSync(
   `${funcDir}/.vc-config.json`,
-  JSON.stringify({ runtime: "edge", entrypoint: "index.js" }, null, 2),
+  JSON.stringify(
+    { runtime: "nodejs20.x", handler: "entry.js", launcherType: "Nodejs" },
+    null,
+    2,
+  ),
 );
 
 // ── 5. Vercel routing config ──────────────────────────────────────────────────
@@ -50,9 +118,7 @@ writeFileSync(
     {
       version: 3,
       routes: [
-        // Serve pre-built static assets directly from CDN
         { handle: "filesystem" },
-        // Everything else → SSR edge function
         { src: "/(.*)", dest: "/index" },
       ],
     },
